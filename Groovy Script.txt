@@ -1,0 +1,38 @@
+node{
+    
+    def mvnHome=tool name: 'Maven',type: 'maven'
+    
+    stage('Checkout'){
+        echo 'Getting Repo From GitHub'
+        git branch : 'main', url : 'https://github.com/Teja-Kondepu/DockerDemo.git'
+        echo 'Success'
+    }
+    stage('Build'){
+        try{
+            sh "${mvnHome}/bin/mvn clean install"
+        }
+        catch(Exception e){
+            echo "Build Failed:${e.message}"
+            currentBuild.result='FAILURE'
+            throw e
+        }
+    }
+    
+    stage('Deploy'){
+        withCredentials([sshUserPrivateKey(credentialsId:'Tomcat-Creds',keyFileVariable:'SSH_KEY')]){
+            try{
+                sh """
+                scp -o StrictHostKeyChecking=no -i ${SSH_KEY} target/*.war ec2-user@172.31.14.103:/opt/tomcat/webapps
+                """
+                
+                echo "Deploy Success"
+            }catch(Exception e){
+                echo "Deployment Failed: ${e.message}"
+                currentBuild.result="FAILURE"
+                throw e
+            }
+        }
+    }
+    
+   
+}

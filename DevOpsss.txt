@@ -1,0 +1,75 @@
+FROM tomcat:latest
+RUN cp -R /usr/local/tomcat/webapps.dist/* /usr/local/tomcat/webapps/
+COPY ./*.war /usr/local/tomcat/webapps
+
+
+---
+- hosts: ansiblehost
+  become: true
+  tasks:
+    - name: Log in to DockerHub
+      docker_login:
+        username: teja485
+        password: "@gopi09876A"
+      
+    - name: Build Docker image
+      command: docker build -t helloworld2:latest .
+      args:
+        chdir: /opt/docker
+    
+    - name: Tag Docker image for DockerHub
+      command: docker tag helloworld2:latest teja485/helloworld2:latest
+    
+    - name: Push Docker image to DockerHub
+      command: docker push teja485/helloworld2:latest
+
+
+
+---
+- hosts: dockerhost
+  become: true
+  tasks:
+    - name: Create and run the Docker container
+      command: docker run -d --name hello_world_server -p 8086:8080 teja485/helloworld2:latest
+
+
+
+
+usermod -aG docker dockeradmin
+chown -R dockeradmin:dockeradmin docker
+chmod 777 /var/run/docker.sock
+
+
+---
+- name: Install and Configure Nginx
+  hosts: dockerhost
+  become: true
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Start and enable nginx
+      service:
+        name: nginx
+        state: started
+        enabled: true
+
+
+
+ssh-copy-id dockeradmin@docker private ip
+
+Hosts file 
+
+[Dockerhost]
+Private Ip ansible_user=dockeradmin ansible_ssh_private_key_file=/home/ec2-user/.ssh/id_rsa
+
+
+Test the Connection:-
+
+ssh -i ~/.ssh/id_rsa dockeradmin@ManagedNodeIp
+
+
+docker rm -f $(docker ps -aq)
+docker rmi -f $(docker images -aq)
